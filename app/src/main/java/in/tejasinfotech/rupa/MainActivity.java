@@ -95,25 +95,37 @@ if (j.optBoolean("ok") && !token.isEmpty()) {
         logout.setOnClickListener(v -> { prefs.edit().clear().apply(); showLogin(); });
     }
     void loadDashboard() {
-        progress=ProgressDialog.show(this,"Loading","Dashboard...",true,false);
-        new Thread(() -> {
-            try { String out=get("dashboard.php"); JSONObject j=new JSONObject(out);
-                runOnUiThread(()->{progress.dismiss(); showText("Dashboard", pretty(j));});
-            } catch(Exception e){runOnUiThread(()->handleError(e));}
-        }).start();
-   void loadList(String endpoint,String heading) {
-    progress=ProgressDialog.show(this,"Loading",heading+"...",true,false);
+    progress = ProgressDialog.show(this, "Loading", "Dashboard...", true, false);
 
     new Thread(() -> {
         try {
-            String out=get(endpoint);
+            String out = get("dashboard.php");
+            JSONObject j = new JSONObject(out);
+
+            runOnUiThread(() -> {
+                progress.dismiss();
+                showText("Dashboard", pretty(j));
+            });
+
+        } catch (Exception e) {
+            runOnUiThread(() -> handleError(e));
+        }
+    }).start();
+}
+
+void loadList(String endpoint, String heading) {
+    progress = ProgressDialog.show(this, "Loading", heading + "...", true, false);
+
+    new Thread(() -> {
+        try {
+            String out = get(endpoint);
 
             runOnUiThread(() -> {
                 progress.dismiss();
                 showText(heading, prettyJson(out));
             });
 
-        } catch(Exception e) {
+        } catch (Exception e) {
             runOnUiThread(() -> handleError(e));
         }
     }).start();
@@ -129,20 +141,40 @@ void handleError(Exception e) {
         showText("Error", e.getMessage());
     }
 }
-    }
-    void showText(String heading,String text) {
-        base(heading);
-        ScrollView sv=new ScrollView(this); TextView t=tv(text,16); sv.addView(t); root.addView(sv,new LinearLayout.LayoutParams(-1,0,1));
-        Button back=btn("← Back"); back.setOnClickListener(v->showHome()); root.addView(back);
-    }
-    String pretty(JSONObject j){
+
+void showText(String heading, String text) {
+    base(heading);
+
+    ScrollView sv = new ScrollView(this);
+    TextView t = tv(text, 16);
+
+    sv.addView(t);
+    root.addView(sv, new LinearLayout.LayoutParams(-1, 0, 1));
+
+    Button back = btn("← Back");
+    back.setOnClickListener(v -> showHome());
+    root.addView(back);
+}
+
+String pretty(JSONObject j) {
     try {
         return j.toString(2);
     } catch (JSONException e) {
         return j.toString();
     }
 }
-    String prettyJson(String s){try{return new JSONArray(s).toString(2);}catch(Exception e){try{return new JSONObject(s).toString(2);}catch(Exception x){return s;}}}
+
+String prettyJson(String s) {
+    try {
+        return new JSONArray(s).toString(2);
+    } catch (Exception e) {
+        try {
+            return new JSONObject(s).toString(2);
+        } catch (Exception x) {
+            return s;
+        }
+    }
+}
 
     String post(String path,String body,String token)throws Exception{
         return request(path,"POST",body,token);

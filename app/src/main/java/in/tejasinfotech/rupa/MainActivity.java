@@ -30,13 +30,27 @@ public class MainActivity extends Activity {
     Button btn(String s) {
         Button b = new Button(this); b.setText(s); b.setAllCaps(false); return b;
     }
-    void base(String heading) {
-        root = new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(Color.WHITE);
-        title = tv(heading, 24); title.setTextColor(Color.rgb(23,105,170)); title.setTypeface(null,1);
-        root.addView(title);
-        setContentView(root);
-    }
+   void base(String heading) {
+    root = new LinearLayout(this);
+    root.setOrientation(LinearLayout.VERTICAL);
+    root.setBackgroundColor(Color.WHITE);
+
+    ImageView logo = new ImageView(this);
+    logo.setImageResource(R.drawable.rupa);
+    logo.setAdjustViewBounds(true);
+    logo.setPadding(20, 20, 20, 10);
+
+    root.addView(logo, new LinearLayout.LayoutParams(
+            -1, 220
+    ));
+
+    title = tv(heading, 24);
+    title.setTextColor(Color.rgb(23,105,170));
+    title.setTypeface(null,1);
+    root.addView(title);
+
+    setContentView(root);
+}
     void showLogin() {
         base("Rupa Crane Service");
         LinearLayout box = new LinearLayout(this); box.setOrientation(LinearLayout.VERTICAL); box.setPadding(30,30,30,30);
@@ -56,10 +70,14 @@ public class MainActivity extends Activity {
                 JSONObject j = new JSONObject(out);
                 runOnUiThread(() -> {
                     progress.dismiss();
-                    if (j.optBoolean("ok")) {
-                        prefs.edit().putString("token",j.optString("token")).apply();
-                        showHome();
-                    } else msg.setText(j.optString("message","Login failed"));
+                    String token = j.optString("token","");
+
+if (j.optBoolean("ok") && !token.isEmpty()) {
+    prefs.edit().putString("token",token).apply();
+    showHome();
+} else {
+    msg.setText(j.optString("message","Login failed"));
+}
                 });
             } catch(Exception e) { runOnUiThread(() -> {progress.dismiss(); msg.setText(e.getMessage());}); }
         }).start();
@@ -81,15 +99,36 @@ public class MainActivity extends Activity {
         new Thread(() -> {
             try { String out=get("dashboard.php"); JSONObject j=new JSONObject(out);
                 runOnUiThread(()->{progress.dismiss(); showText("Dashboard", pretty(j));});
-            } catch(Exception e){runOnUiThread(()->{progress.dismiss(); showText("Error",e.getMessage());});}
+            } catch(Exception e){runOnUiThread(()->handleError(e));}
         }).start();
+   void loadList(String endpoint,String heading) {
+    progress=ProgressDialog.show(this,"Loading",heading+"...",true,false);
+
+    new Thread(() -> {
+        try {
+            String out=get(endpoint);
+
+            runOnUiThread(() -> {
+                progress.dismiss();
+                showText(heading, prettyJson(out));
+            });
+
+        } catch(Exception e) {
+            runOnUiThread(() -> handleError(e));
+        }
+    }).start();
+}
+
+void handleError(Exception e) {
+    progress.dismiss();
+
+    if ("SESSION_EXPIRED".equals(e.getMessage())) {
+        prefs.edit().remove("token").apply();
+        showLogin();
+    } else {
+        showText("Error", e.getMessage());
     }
-    void loadList(String endpoint,String heading) {
-        progress=ProgressDialog.show(this,"Loading",heading+"...",true,false);
-        new Thread(() -> {
-            try { String out=get(endpoint); runOnUiThread(()->{progress.dismiss(); showText(heading, prettyJson(out));});}
-            catch(Exception e){runOnUiThread(()->{progress.dismiss(); showText("Error",e.getMessage());});}
-        }).start();
+}
     }
     void showText(String heading,String text) {
         base(heading);
@@ -117,8 +156,31 @@ public class MainActivity extends Activity {
         c.setRequestProperty("Accept","application/json");
         if(token!=null&&!token.isEmpty()) c.setRequestProperty("Authorization","Bearer "+token);
         if(body!=null){c.setDoOutput(true); try(OutputStream os=c.getOutputStream()){os.write(body.getBytes("UTF-8"));}}
-        InputStream is=c.getResponseCode()<400?c.getInputStream():c.getErrorStream();
-        BufferedReader r=new BufferedReader(new InputStreamReader(is)); StringBuilder sb=new StringBuilder(); String line;
-        while((line=r.readLine())!=null)sb.append(line); c.disconnect(); return sb.toString();
+        int code = c.getResponseCode();
+
+InputStream is = code < 400
+        ? c.getInputStream()
+        : c.getErrorStream();
+
+BufferedReader r = new BufferedReader(new InputStreamReader(is));
+StringBuilder sb = new StringBuilder();
+String line;
+
+while((line = r.readLine()) != null) {
+    sb.append(line);
+}
+
+c.disconnect();
+
+if(code == 401) {
+    prefs.edit().remove("token").apply();
+    throw new Exception("SESSION_EXPIRED");
+}
+
+if(code >= 400) {
+    throw new Exception(sb.toString());
+}
+
+return sb.toString();
     }
 }

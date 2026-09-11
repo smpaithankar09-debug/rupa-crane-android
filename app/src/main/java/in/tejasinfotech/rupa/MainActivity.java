@@ -96,7 +96,13 @@ public class MainActivity extends Activity {
         ScrollView sv=new ScrollView(this); TextView t=tv(text,16); sv.addView(t); root.addView(sv,new LinearLayout.LayoutParams(-1,0,1));
         Button back=btn("← Back"); back.setOnClickListener(v->showHome()); root.addView(back);
     }
-    String pretty(JSONObject j){return j.toString(2);}
+    String pretty(JSONObject j){
+    try {
+        return j.toString(2);
+    } catch (JSONException e) {
+        return j.toString();
+    }
+}
     String prettyJson(String s){try{return new JSONArray(s).toString(2);}catch(Exception e){try{return new JSONObject(s).toString(2);}catch(Exception x){return s;}}}
 
     String post(String path,String body,String token)throws Exception{
